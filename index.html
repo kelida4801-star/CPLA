@@ -1,200 +1,209 @@
-// 1. Firebase 설정 (정환님의 설정값 유지)
-const firebaseConfig = {
-    apiKey: "AIzaSyDdljK3SeulhUaoj3FAQRjFprifR18xKKg",
-    authDomain: "cpla-study.firebaseapp.com",
-    databaseURL: "https://cpla-study-default-rtdb.firebaseio.com",
-    projectId: "cpla-study",
-    storageBucket: "cpla-study.firebasestorage.app",
-    messagingSenderId: "946106228182",
-    appId: "1:946106228182:web:db39f4b37361b6c38cd877"
-};
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사례집 진도 체크</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <style>
+        /* 1. 디자인 (CSS) 부분 */
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        :root {
+            --bg: #f8f9fa; --card: #ffffff; --text: #1e272e;
+            --border: #e9ecef; --shadow: rgba(0, 0, 0, 0.04);
+            --primary: #3498db; --accent: #27ae60; --danger: #ff4757;
+        }
+        body.dark {
+            --bg: #121212; --card: #1e1e1e; --text: #e0e0e0;
+            --border: #2d2d2d; --shadow: rgba(0, 0, 0, 0.2);
+        }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; transition: 0.3s; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 10px; }
+        .header h1 { font-size: 1.6rem; font-weight: 900; margin: 0; }
+        .d-day { background: var(--danger); color: white; padding: 8px 18px; border-radius: 15px; font-weight: 800; font-size: 0.95rem; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 2px solid var(--border); align-items: center; }
+        .tab-btn { padding: 12px 25px; border: none; background: none; font-size: 1.1rem; font-weight: 800; color: #999; cursor: pointer; position: relative; }
+        .tab-btn.active { color: var(--primary); }
+        .tab-btn.active::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 100%; height: 3px; background: var(--primary); }
+        .add-tab-btn { color: var(--accent); font-size: 1.8rem; cursor: pointer; padding: 0 15px; border: none; background: none; font-weight: bold; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: var(--card); border-radius: 24px; padding: 22px; box-shadow: 0 10px 25px var(--shadow); border: 1px solid var(--border); }
+        .num-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin-top: 15px; }
+        .num-item { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; position: relative; font-weight: 600; background: var(--card); }
+        .num-item.solved { color: white; }
+        .num-item.starred::after { content: '⭐'; position: absolute; top: 1px; right: 1px; font-size: 0.5rem; }
+        .topic-dot { position: absolute; top: 3px; right: 3px; width: 4px; height: 4px; background: #ff4757; border-radius: 50%; display: none; }
+        .has-topic .topic-dot { display: block; }
+        .progress-bar { height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; margin: 15px 0 8px 0; }
+        .progress-fill { height: 100%; transition: 0.6s; }
+        .control-panel { position: sticky; bottom: 20px; background: var(--card); padding: 15px; border-radius: 24px; display: flex; gap: 10px; border: 1px solid var(--border); z-index: 100; align-items: center; }
+        .btn-extract { flex: 3; background: var(--primary); color: white; padding: 16px; border-radius: 14px; border: none; font-weight: 700; cursor: pointer; }
+        #result-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card); padding: 35px; border-radius: 30px; box-shadow: 0 25px 60px rgba(0,0,0,0.3); border: 3px solid var(--primary); display: none; z-index: 1100; text-align: center; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 1050; }
+    </style>
+</head>
+<body>
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const dataRef = db.ref('studyData/jeonghwan');
+<div class="container">
+    <div class="header">
+        <h1 id="main-title">📑 합격 매니저</h1>
+        <div id="dday-display" class="d-day"></div>
+    </div>
 
-const examDate = new Date('2026-08-29');
-const colorPalette = ['#ff7675', '#fab1a0', '#00b894', '#a29bfe', '#74b9ff'];
+    <nav class="tabs" id="tabs-list"></nav>
 
-let appData = null;
+    <div class="config-area" style="margin-bottom: 20px;">
+        <div style="font-size: 0.75rem; color: #888; background: var(--card); padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border);">
+            💡 클릭: 완료 / 우클릭: ⭐ / 더블클릭: 주제 입력
+        </div>
+    </div>
 
-function getDefaultSubjects() {
-    return [
-        { name: "노동법 1", max: 50, solved: [], round: 1, starred: [], topics: {}, color: colorPalette[0] },
-        { name: "노동법 2", max: 50, solved: [], round: 1, starred: [], topics: {}, color: colorPalette[1] },
-        { name: "인사노무관리", max: 50, solved: [], round: 1, starred: [], topics: {}, color: colorPalette[2] },
-        { name: "행정쟁송법", max: 50, solved: [], round: 1, starred: [], topics: {}, color: colorPalette[3] },
-        { name: "노동경제학", max: 50, solved: [], round: 1, starred: [], topics: {}, color: colorPalette[4] }
-    ];
-}
+    <div id="subjects-grid" class="grid-container"></div>
 
-// 2. 서버 데이터 감시 (에러 방지 로직 보강)
-dataRef.on('value', (snapshot) => {
-    const val = snapshot.val();
-    if (val) {
-        appData = val;
-        // 데이터 누락 방지 (새로 추가된 필드 대응)
-        if (!appData.tabs) appData.tabs = [{ id: 'basic', name: '기본서' }, { id: 'case', name: '사례집' }];
-        if (!appData.books) appData.books = { 'basic': getDefaultSubjects(), 'case': getDefaultSubjects() };
-        if (!appData.history) appData.history = [];
-    } else {
-        appData = {
-            activeTab: 'basic',
-            tabs: [{ id: 'basic', name: '기본서' }, { id: 'case', name: '사례집' }],
-            books: { 'basic': getDefaultSubjects(), 'case': getDefaultSubjects() },
-            history: []
-        };
-        save();
+    <div class="control-panel">
+        <button class="btn-theme" onclick="toggleTheme()" style="padding:10px; border-radius:10px; cursor:pointer;">🌓 테마 전환</button>
+        <button class="btn-extract" onclick="extractToday()">오늘의 문제 추출</button>
+    </div>
+</div>
+
+<div id="overlay" class="overlay" onclick="closeModal()"></div>
+<div id="result-modal">
+    <h2 style="color:var(--primary);">🎯 오늘의 번호</h2>
+    <div id="result-content" style="font-size: 1.15rem; margin-bottom: 25px; font-weight: 800;"></div>
+    <button onclick="closeModal()" style="padding:10px 20px; background:var(--primary); color:white; border:none; border-radius:10px; cursor:pointer;">확인 완료</button>
+</div>
+
+<script>
+    // 2. 기능 (JS) 부분
+    const firebaseConfig = {
+        apiKey: "AIzaSyDdljK3SeulhUaoj3FAQRjFprifR18xKKg",
+        authDomain: "cpla-study.firebaseapp.com",
+        databaseURL: "https://cpla-study-default-rtdb.firebaseio.com",
+        projectId: "cpla-study",
+        storageBucket: "cpla-study.firebasestorage.app",
+        messagingSenderId: "946106228182",
+        appId: "1:946106228182:web:db39f4b37361b6c38cd877"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const dataRef = db.ref('studyData/jeonghwan'); // 정환님 전용 데이터 경로
+
+    const examDate = new Date('2026-08-29'); // 2026년 공인노무사 시험일
+    const colorPalette = ['#ff7675', '#fab1a0', '#00b894', '#a29bfe', '#74b9ff'];
+    let appData = null;
+
+    function getDefaultSubjects() {
+        return [
+            { name: "노동법 1", max: 50, solved: [], round: 1, starred: [], topics: {}, color: colorPalette[0] },
+            { name: "노동법 2", max: 50, solved: [], round: 1, starred: [], topics: {}, color: colorPalette[1] },
+            { name: "인사노무관리", max: 50, solved: [], round: 1, starred: [], topics: {}, color: colorPalette[2] },
+            { name: "행정쟁송법", max: 50, solved: [], round: 1, starred: [], topics: {}, color: colorPalette[3] },
+            { name: "노동경제학", max: 50, solved: [], round: 1, starred: [], topics: {}, color: colorPalette[4] }
+        ];
     }
-    render();
-    renderTabs();
-}, (error) => {
-    console.error("Firebase 로드 에러:", error);
-});
 
-function save() { if(appData) dataRef.set(appData); }
+    dataRef.on('value', (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+            appData = val;
+            if (!appData.tabs) appData.tabs = [{ id: 'basic', name: '기본서' }, { id: 'case', name: '사례집' }];
+            if (!appData.books) appData.books = { 'basic': getDefaultSubjects(), 'case': getDefaultSubjects() };
+        } else {
+            appData = {
+                activeTab: 'basic',
+                tabs: [{ id: 'basic', name: '기본서' }, { id: 'case', name: '사례집' }],
+                books: { 'basic': getDefaultSubjects(), 'case': getDefaultSubjects() },
+                history: []
+            };
+            save();
+        }
+        render();
+        renderTabs();
+    });
 
-function render() {
-    const grid = document.getElementById('subjects-grid');
-    if (!appData || !appData.books || !appData.books[appData.activeTab]) return;
+    function save() { if(appData) dataRef.set(appData); }
 
-    const subjects = appData.books[appData.activeTab];
-    grid.innerHTML = subjects.map((s, idx) => {
-        // null 방지 처리: 리스트가 없으면 빈 리스트([])로 인식하게 함
-        const solvedList = s.solved || [];
-        const starredList = s.starred || [];
-        const topicsObj = s.topics || {};
-        const percent = s.max > 0 ? ((solvedList.length / s.max) * 100).toFixed(1) : 0;
-
-        return `
-            <div class="card" style="border-top: 4px solid ${s.color}">
-                <div class="subject-top">
-                    <div class="subject-info">
-                        <h2 style="color:${s.color}">${s.name}</h2>
-                        <div style="margin-top:2px;">
-                            <input type="number" class="input-round" style="color:${s.color}" value="${s.round || 1}" onchange="updateRound(${idx}, this.value)"> 
-                            <span style="font-size:0.85rem; font-weight:700; opacity:0.6;">회독 중</span>
-                        </div>
-                    </div>
-                    <div class="card-btn-group">
-                        <button class="btn-card-action" onclick="batchCheck(${idx})">범위체크</button>
-                        <button class="btn-card-action" onclick="resetSubject(${idx})" style="color:var(--danger)">초기화</button>
-                    </div>
-                </div>
-                <div class="progress-bar"><div class="progress-fill" style="width:${percent}%; background:${s.color}"></div></div>
-                <div class="progress-info">
-                    <span>${solvedList.length} / <input type="number" class="input-round" style="width:40px; font-size:0.8rem; color:inherit;" value="${s.max || 50}" onchange="updateMax(${idx}, this.value)"> 문항</span>
-                    <span>${percent}%</span>
-                </div>
-                <div class="num-grid">
-                    ${Array.from({length: s.max || 50}, (_, i) => i + 1).map(n => {
-                        const topic = topicsObj[n] || '';
-                        const isSolved = solvedList.includes(n);
-                        const isStarred = starredList.includes(n);
-                        return `
-                            <div class="num-item ${isSolved ? 'solved' : ''} ${isStarred ? 'starred' : ''} ${topic ? 'has-topic' : ''}" 
-                                 style="${isSolved ? `background:${s.color}; color:white; border-color:${s.color};` : ''}"
-                                 ${topic ? `data-topic="${topic}"` : ''}
-                                 onclick="toggleNum(${idx}, ${n})" oncontextmenu="toggleStar(event, ${idx}, ${n})" ondblclick="setTopic(${idx}, ${n})">
-                                 <div class="topic-dot"></div>
+    function render() {
+        const grid = document.getElementById('subjects-grid');
+        if (!appData || !appData.books[appData.activeTab]) return;
+        const subjects = appData.books[appData.activeTab];
+        grid.innerHTML = subjects.map((s, idx) => {
+            const solvedList = s.solved || [];
+            const starredList = s.starred || [];
+            const percent = ((solvedList.length / s.max) * 100).toFixed(1);
+            return `
+                <div class="card" style="border-top: 4px solid ${s.color}">
+                    <h2 style="color:${s.color}; margin:0;">${s.name} (${s.round}회독)</h2>
+                    <div class="progress-bar"><div class="progress-fill" style="width:${percent}%; background:${s.color}"></div></div>
+                    <div style="font-size:0.8rem; opacity:0.7; margin-bottom:10px;">진행도: ${solvedList.length}/${s.max} (${percent}%)</div>
+                    <div class="num-grid">
+                        ${Array.from({length: s.max}, (_, i) => i + 1).map(n => `
+                            <div class="num-item ${solvedList.includes(n) ? 'solved' : ''} ${starredList.includes(n) ? 'starred' : ''}" 
+                                 style="${solvedList.includes(n) ? `background:${s.color}; color:white;` : ''}"
+                                 onclick="toggleNum(${idx}, ${n})" oncontextmenu="toggleStar(event, ${idx}, ${n})">
                                  ${n}
                             </div>
-                        `;
-                    }).join('')}
+                        `).join('')}
+                    </div>
                 </div>
-            </div>
-        `;
-    }).join('');
-    renderHistory();
-    updateDDay();
-}
+            `;
+        }).join('');
+        updateDDay();
+    }
 
-// 탭 렌더링
-function renderTabs() {
-    const tabsList = document.getElementById('tabs-list');
-    if (!appData || !appData.tabs) return;
-    tabsList.innerHTML = appData.tabs.map(tab => `
-        <button class="tab-btn ${appData.activeTab === tab.id ? 'active' : ''}" onclick="switchTab('${tab.id}')">
-            ${tab.name}
-            <span class="del-tab" onclick="deleteTab(event, '${tab.id}')">✕</span>
-        </button>
-    `).join('') + `<button class="add-tab-btn" onclick="addTab()">+</button>`;
-}
+    function renderTabs() {
+        const list = document.getElementById('tabs-list');
+        list.innerHTML = appData.tabs.map(t => `<button class="tab-btn ${appData.activeTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.name}</button>`).join('') + `<button class="add-tab-btn" onclick="addTab()">+</button>`;
+    }
 
-// 나머지 기능 함수들 (수정 없이 유지 가능)
-function switchTab(id) { appData.activeTab = id; save(); }
-function updateRound(idx, val) { appData.books[appData.activeTab][idx].round = parseInt(val) || 1; save(); }
-function updateMax(idx, val) { appData.books[appData.activeTab][idx].max = parseInt(val) || 50; save(); }
-function toggleNum(idx, num) {
-    const s = appData.books[appData.activeTab][idx];
-    if (!s.solved) s.solved = [];
-    if (s.solved.includes(num)) s.solved = s.solved.filter(n => n !== num);
-    else s.solved.push(num);
-    if (s.solved.length >= s.max) { s.round++; s.solved = []; alert('🎉 다음 회독 시작!'); }
-    save();
-}
-function toggleStar(e, idx, num) { e.preventDefault(); const s = appData.books[appData.activeTab][idx]; if(!s.starred) s.starred = []; if(s.starred.includes(num)) s.starred = s.starred.filter(n => n !== num); else s.starred.push(num); save(); }
-function setTopic(idx, num) {
-    const subject = appData.books[appData.activeTab][idx];
-    if (!subject.topics) subject.topics = {};
-    const topic = prompt(`[${num}번] 주제 입력:`, subject.topics[num] || "");
-    if (topic !== null) { subject.topics[num] = topic; save(); }
-}
-function batchCheck(idx) {
-    const input = prompt("범위 입력 (예: 1-10)");
-    if (!input) return;
-    const parts = input.split("-");
-    const start = parseInt(parts[0]);
-    const end = parseInt(parts[1]);
-    const s = appData.books[appData.activeTab][idx];
-    if (!s.solved) s.solved = [];
-    for (let i = start; i <= end; i++) if (i >= 1 && i <= s.max && !s.solved.includes(i)) s.solved.push(i);
-    save();
-}
-function resetSubject(idx) { if(confirm("초기화할까요?")) { const s = appData.books[appData.activeTab][idx]; s.solved = []; s.starred = []; s.round = 1; s.topics = {}; save(); } }
-function toggleTheme() { document.body.classList.toggle('dark'); }
-function closeModal() { document.getElementById('result-modal').style.display = 'none'; document.getElementById('overlay').style.display = 'none'; }
-function renderHistory() {
-    const hist = appData.history || [];
-    document.getElementById('history-content').innerHTML = hist.length ? hist.slice(0, 5).map(h => `<div style="font-size:0.85rem; padding:10px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between;"><b>${h.time}</b> <span>${h.result}</span></div>`).join('') : '<div style="text-align:center; color:#888; padding:20px;">기록 없음</div>';
-}
-function updateDDay() { const diff = examDate - new Date(); document.getElementById('dday-display').innerText = `2026 합격 D-${Math.ceil(diff / (1000 * 60 * 60 * 24))}`; }
-function changeSelectiveSubject() {
-    const newName = document.getElementById('selective-subject-select').value;
-    if(confirm(`${newName}으로 변경할까요?`)) { appData.books[appData.activeTab][4].name = newName; save(); }
-}
-function extractToday() {
-    const data = appData.books[appData.activeTab];
-    const isStarOnly = document.getElementById('star-mode-checkbox').checked;
-    const activeTabObj = appData.tabs.find(t => t.id === appData.activeTab);
-    let results = [];
-    let logText = "";
-    data.forEach((s, idx) => {
-        let avail = [];
-        const solvedList = s.solved || [];
-        const starredList = s.starred || [];
-        for(let i=1; i<=s.max; i++) {
-            if(!solvedList.includes(i)) {
-                if (isStarOnly) { if (starredList.includes(i)) avail.push(i); }
-                else avail.push(i);
+    function switchTab(id) { appData.activeTab = id; save(); }
+    function toggleNum(idx, num) {
+        const s = appData.books[appData.activeTab][idx];
+        if (!s.solved) s.solved = [];
+        if (s.solved.includes(num)) s.solved = s.solved.filter(n => n !== num);
+        else s.solved.push(num);
+        if (s.solved.length >= s.max) { s.round++; s.solved = []; alert('🎉 다음 회독 시작!'); }
+        save();
+    }
+    function toggleStar(e, idx, num) {
+        e.preventDefault();
+        const s = appData.books[appData.activeTab][idx];
+        if (!s.starred) s.starred = [];
+        if (s.starred.includes(num)) s.starred = s.starred.filter(n => n !== num);
+        else s.starred.push(num);
+        save();
+    }
+    function addTab() {
+        const name = prompt("책 이름을 입력하세요:");
+        if (!name) return;
+        const id = 'tab_' + Date.now();
+        appData.tabs.push({ id, name });
+        appData.books[id] = getDefaultSubjects();
+        save();
+    }
+    function toggleTheme() { document.body.classList.toggle('dark'); }
+    function closeModal() { document.getElementById('result-modal').style.display = 'none'; document.getElementById('overlay').style.display = 'none'; }
+    function updateDDay() {
+        const diff = examDate - new Date();
+        document.getElementById('dday-display').innerText = `D-${Math.ceil(diff / (1000 * 60 * 60 * 24))}`;
+    }
+    function extractToday() {
+        const subjects = appData.books[appData.activeTab];
+        let results = [];
+        subjects.forEach(s => {
+            const avail = Array.from({length: s.max}, (_, i) => i + 1).filter(n => !s.solved.includes(n));
+            if (avail.length > 0) {
+                const pick = avail[Math.floor(Math.random() * avail.length)];
+                results.push(`${s.name}: ${pick}번`);
             }
-        }
-        if(avail.length > 0) {
-            const p = avail[Math.floor(Math.random() * avail.length)];
-            if (!s.solved) s.solved = [];
-            s.solved.push(p);
-            const topic = (s.topics && s.topics[p]) ? ` (${s.topics[p]})` : "";
-            results.push(`<span style="color:${s.color}">${s.name}</span>: ${p}번${topic}`);
-            logText += `${s.name}(${p}) `;
-        }
-    });
-    if (results.length > 0) {
-        if(!appData.history) appData.history = [];
-        appData.history.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), result: `[${activeTabObj.name}] ` + logText });
-        if (appData.history.length > 10) appData.history.pop();
+        });
         document.getElementById('result-content').innerHTML = results.join('<br>');
         document.getElementById('result-modal').style.display = 'block';
         document.getElementById('overlay').style.display = 'block';
-        save();
-    } else alert("추출할 번호가 없습니다.");
-}
+    }
+</script>
+</body>
+</html>
