@@ -19,7 +19,7 @@ const MainDashBoard = ({
           <div className="guide-item"><span className="guide-key">우클릭</span><span className="guide-desc">가중치🔥</span></div>
           <div className="guide-item"><span className="guide-key">Alt</span><span className="guide-desc">마스터🏆</span></div>
           <div className="guide-item"><span className="guide-key">Shift</span><span className="guide-desc">데이터리셋</span></div>
-          <div class="guide-item"><span class="guide-key">A+S+클릭</span><span class="guide-desc">과거입력</span></div>
+          <div className="guide-item"><span className="guide-key">A+S+클릭</span><span className="guide-desc">과거입력</span></div>
         </div>
         <button className="btn-mini" style={{ padding: '8px 18px', borderRadius: '12px' }} onClick={actions.addNewSubject}>
           + 과목 추가

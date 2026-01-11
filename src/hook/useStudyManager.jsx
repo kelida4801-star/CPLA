@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
+import { doc, getDoc, setDoc } from "firebase/firestore"; 
+import { db } from "../firebase/db.js"; // ⚠️ firebase.js가 있는 경로로 맞춰주세요 (예: ./firebase 또는 ../firebase)
 
 export const useStudyManager = () => {
-  const intervals = [0, 1, 3, 7, 14, 30, 45, 60];
 
-  const [appData, setAppData] = useState(() => {
-    const saved = localStorage.getItem("cpla_ebbinghaus_v3_react");
-    if (saved) return JSON.parse(saved);
-    
+  console.log("DB 상태 확인:", db);
+  
+  const intervals = [0, 1, 3, 7, 14, 30, 45, 60];
+  const [isLoading, setIsLoading] = useState(true); // 로딩 상태 추가
+
+  // --- 1. 기본값 정의 (초기 상태) ---
+  const getDefaultData = () => {
     const colors = ["#0984e3", "#d63031", "#00b894", "#6c5ce7", "#fdcb6e", "#fab1a0", "#00cec9", "#636e72"];
     const defaultSubjects = ["노동법 1", "노동법 2", "인사노무관리", "행정쟁송법", "노동경제학"].map((name, i) => ({
       name, color: colors[i % colors.length], max: 50, records: {}, extractEnabled: true
@@ -20,17 +24,64 @@ export const useStudyManager = () => {
       logs: [],
       isDark: false
     };
-  });
+  };
 
+  // State 초기화: 일단 기본값으로 시작
+  const [appData, setAppData] = useState(getDefaultData());
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [modal, setModal] = useState({ isOpen: false, title: "", content: "" });
 
+  // --- 2. [불러오기] Firebase에서 데이터 Fetch (앱 시작 시 1회) ---
   useEffect(() => {
-    localStorage.setItem("cpla_ebbinghaus_v3_react", JSON.stringify(appData));
-  }, [appData]);
+    const fetchData = async () => {
+      try {
+        // 'study_data' 컬렉션의 'my_data' 문서 사용 (나중에 로그인 연동 시 'my_data' 대신 user.uid 사용 추천)
+        const docRef = doc(db, "study_data", "my_data");
+        const docSnap = await getDoc(docRef);
 
+        if (docSnap.exists()) {
+          console.log("Firebase 데이터 로드 완료!");
+          setAppData(docSnap.data());
+        } else {
+          console.log("데이터가 없어 기본값으로 시작합니다.");
+          // 데이터가 없으면 현재 기본값(defaultData) 상태 유지 후 저장됨
+        }
+      } catch (error) {
+        console.error("데이터 불러오기 실패:", error);
+        alert("데이터를 불러오지 못했습니다. 인터넷 연결을 확인하세요.");
+      } finally {
+        setIsLoading(false); // 로딩 끝
+      }
+    };
+    fetchData();
+  }, []);
+
+  // --- 3. [자동 저장] appData가 변할 때마다 Firebase에 저장 ---
+  useEffect(() => {
+    // 로딩 중일 때는 저장하지 않음 (빈 데이터 덮어쓰기 방지)
+    if (isLoading) return;
+
+    const saveData = async () => {
+      try {
+        const docRef = doc(db, "study_data", "my_data");
+        await setDoc(docRef, appData);
+        // console.log("자동 저장 완료"); // 너무 자주 찍히면 주석 처리
+      } catch (error) {
+        console.error("자동 저장 실패:", error);
+      }
+    };
+
+    // 디바운싱(Debouncing) 적용: 1초 동안 변화가 없으면 저장 (쓰기 비용 절약)
+    const timeoutId = setTimeout(() => {
+      saveData();
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [appData, isLoading]);
+
+
+  // --- 4. 액션 로직 (기존과 동일, 로컬 State만 바꾸면 useEffect가 알아서 저장함) ---
   const actions = {
-    // [공통 업데이트 헬퍼] - 불변성을 지키며 특정 문항 레벨업
     updateItemLevel: (sIdx, num, daysAgo = 0) => {
       setAppData(prev => {
         const newBooks = { ...prev.books };
@@ -38,11 +89,9 @@ export const useStudyManager = () => {
         const targetSubject = { ...currentTabBooks[sIdx] };
         const newRecords = { ...targetSubject.records };
         
-        // 문항 기록 초기화 및 레벨업
         const rec = newRecords[num] ? { ...newRecords[num] } : { level: 0, weight: 1, topic: "", resetCount: 0 };
         rec.level += 1;
         
-        // 날짜 계산 (소급 적용 반영)
         const baseDate = new Date();
         baseDate.setDate(baseDate.getDate() - daysAgo);
         rec.lastDate = baseDate.toISOString().split("T")[0];
@@ -54,13 +103,11 @@ export const useStudyManager = () => {
         next.setDate(next.getDate() + Math.ceil(gap));
         rec.nextDate = next.toISOString().split("T")[0];
 
-        // 상태 조립
         newRecords[num] = rec;
         targetSubject.records = newRecords;
         currentTabBooks[sIdx] = targetSubject;
         newBooks[prev.activeTab] = currentTabBooks;
 
-        // 로그 추가
         const tabObj = prev.tabs.find(t => t.id === prev.activeTab);
         const newLog = {
           date: rec.lastDate,
@@ -79,26 +126,22 @@ export const useStudyManager = () => {
       });
     },
 
-    // [이벤트 핸들러] - HTML의 클릭 로직을 React actions로 변환
     handleItemClick: (e, sIdx, num) => {
       const subject = appData.books[appData.activeTab][sIdx];
       const record = subject.records[num] || { level: 0, topic: "" };
 
-      // 1. Ctrl + 클릭: 주제 입력
       if (e.ctrlKey) {
         const t = prompt(`[${num}번 주제 입력]`, record.topic);
         if (t !== null) actions.updateRecord(sIdx, num, { topic: t.trim() });
         return;
       }
 
-      // 2. Alt + Shift + 클릭: 과거 소급 입력
       if (e.shiftKey && e.altKey) {
         const val = prompt(`[${subject.name} ${num}번 과거 기록 소급]\n몇 일 전 학습인가요? (오늘=0)`, "0");
         if (val !== null && !isNaN(val)) actions.updateItemLevel(sIdx, num, parseInt(val));
         return;
       }
 
-      // 3. Shift + 클릭: 리셋
       if (e.shiftKey) {
         if (confirm(`[${num}번] 초기화하시겠습니까?`)) {
           actions.updateRecord(sIdx, num, { 
@@ -110,19 +153,16 @@ export const useStudyManager = () => {
         return;
       }
 
-      // 4. Alt + 클릭: 마스터
       if (e.altKey) {
         actions.updateRecord(sIdx, num, { mastered: !record.mastered });
         return;
       }
 
-      // 5. 일반 클릭: 레벨업
       if (confirm(`[${subject.name} ${num}번] 레벨업 하시겠습니까?`)) {
         actions.updateItemLevel(sIdx, num, 0);
       }
     },
 
-    // [기타 기능들]
     updateRecord: (sIdx, num, data) => {
       setAppData(prev => {
         const newBooks = { ...prev.books };
@@ -147,12 +187,93 @@ export const useStudyManager = () => {
       actions.updateRecord(sIdx, num, { weight: rec.weight === 1 ? 0.5 : 1 });
     },
 
-    // ... (기타 탭 추가, 삭제, 테마 변경 등의 기존 코드는 동일하게 유지)
+    // 탭 추가/삭제 로직 포함
     switchTab: (id) => setAppData(prev => ({ ...prev, activeTab: id })),
+    
+    // (이하 필요한 나머지 액션들: addTab, deleteTab 등 기존 코드 유지...)
+    onAddTab: () => {
+      const n = prompt("새 교재 명칭:");
+      if (!n) return;
+      const id = "tab_" + Date.now();
+      const colors = ["#0984e3", "#d63031", "#00b894", "#6c5ce7", "#fdcb6e"];
+      const defaultSubjects = ["노동법 1", "노동법 2", "인사노무관리", "행정쟁송법", "노동경제학"].map((name, i) => ({
+        name, color: colors[i % colors.length], max: 50, records: {}, extractEnabled: true
+      }));
+      setAppData(prev => ({
+        ...prev,
+        tabs: [...prev.tabs, { id, name: n.trim() }],
+        books: { ...prev.books, [id]: defaultSubjects },
+        activeTab: id
+      }));
+    },
+    
+    onDeleteTab: (id) => {
+      const target = appData.tabs.find(t => t.id === id);
+      if(appData.tabs.length <= 1) return alert("최소 1개의 교재는 있어야 합니다.");
+      if (confirm(`[${target.name}] 삭제하시겠습니까?`)) {
+        setAppData(prev => {
+          const newTabs = prev.tabs.filter(t => t.id !== id);
+          const newBooks = { ...prev.books };
+          delete newBooks[id];
+          return { ...prev, tabs: newTabs, books: newBooks, activeTab: newTabs[0].id };
+        });
+      }
+    },
+
+    // 추출 관련 기능
+    onExtractDaily: () => {
+      const subjects = appData.books[appData.activeTab];
+      const today = new Date().toISOString().split("T")[0];
+      let results = [], logText = "";
+
+      subjects.forEach(s => {
+        if (!s.extractEnabled) return;
+        let due = [], news = [], learned = [];
+        for (let i = 1; i <= s.max; i++) {
+          const rec = s.records[i] || { level: 0 };
+          if (rec.nextDate && rec.nextDate <= today && !rec.mastered) due.push(i);
+          else if (rec.level === 0) news.push(i);
+          else if (!rec.mastered) learned.push(i);
+        }
+        let pick = due.length ? { n: due[Math.floor(Math.random()*due.length)], t: "복습" } :
+                   news.length ? { n: news[Math.floor(Math.random()*news.length)], t: "신규" } :
+                   learned.length ? { n: learned[Math.floor(Math.random()*learned.length)], t: "보너스" } : null;
+        if (pick) {
+          results.push(`<span style="color:${s.color}">[${pick.t}] ${s.name}</span>: ${pick.n}번`);
+          logText += `${s.name}(${pick.n}) `;
+        }
+      });
+      if (results.length) {
+        setAppData(prev => ({ 
+          ...prev, 
+          history: [{ time: new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}), result: logText }, ...prev.history].slice(0, 10) 
+        }));
+        setModal({ isOpen: true, title: "🎯 오늘의 학습 미션", content: results.join("<br>") });
+      } else alert("추출할 문항이 없습니다.");
+    },
+
+    onExtractWeighted: () => {
+       const subjects = appData.books[appData.activeTab];
+       let weights = [];
+       subjects.forEach(s => {
+         if (!s.extractEnabled) return;
+         Object.keys(s.records).forEach(num => {
+           const rec = s.records[num];
+           if (rec.weight < 1 && !rec.mastered) weights.push({ sName: s.name, color: s.color, num });
+         });
+       });
+       if (!weights.length) return alert("가중치(🔥) 문항이 없습니다.");
+       const picks = weights.sort(() => 0.5 - Math.random()).slice(0, 5);
+       setModal({ 
+         isOpen: true, 
+         title: "🔥 집중 학습 미션", 
+         content: picks.map(p => `<span style="color:${p.color}">[집중] ${p.sName}</span>: ${p.num}번`).join("<br>") 
+       });
+    },
+
     toggleTheme: () => setAppData(prev => ({ ...prev, isDark: !prev.isDark })),
     closeModal: () => setModal(prev => ({ ...prev, isOpen: false })),
-    // (이하 생략 - 기존에 작성해주신 탭/과목 관리 로직 포함 가능)
   };
 
-  return { appData, calendarDate, modal, actions };
+  return { appData, calendarDate, modal, actions, isLoading };
 };
