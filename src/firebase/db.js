@@ -18,6 +18,7 @@ const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true, 
 });
+
 /**
  * 특정 유저의 데이터를 가져오는 함수
  */

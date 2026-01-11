@@ -1,13 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc } from "firebase/firestore"; 
-import { db } from "../firebase/db.js"; // ⚠️ firebase.js가 있는 경로로 맞춰주세요 (예: ./firebase 또는 ../firebase)
+import { db} from "../firebase/db.js"; // ⚠️ firebase.js가 있는 경로로 맞춰주세요 (예: ./firebase 또는 ../firebase)
 
 export const useStudyManager = () => {
 
   console.log("DB 상태 확인:", db);
+  const USER_ID = "jeonghwan"; 
+  const COLLECTION_NAME = "studyData";
 
   const intervals = [0, 1, 3, 7, 14, 30, 45, 60];
   const [isLoading, setIsLoading] = useState(true); // 로딩 상태 추가
+
+  // 초기 로딩이 끝났는지 체크하는 ref
+  const isMounted = useRef(false);
+
 
   // --- 1. 기본값 정의 (초기 상태) ---
   const getDefaultData = () => {
@@ -32,54 +38,56 @@ export const useStudyManager = () => {
   const [modal, setModal] = useState({ isOpen: false, title: "", content: "" });
 
   // --- 2. [불러오기] Firebase에서 데이터 Fetch (앱 시작 시 1회) ---
+ // --- 2. [불러오기] 앱 시작 시 실행 ---
   useEffect(() => {
     const fetchData = async () => {
+      console.log(`🔥 [${USER_ID}] 데이터 불러오기 시도...`);
       try {
-        // 'study_data' 컬렉션의 'my_data' 문서 사용 (나중에 로그인 연동 시 'my_data' 대신 user.uid 사용 추천)
-        const docRef = doc(db, "study_data", "my_data");
+        // ⭐ 경로 수정: studyData 컬렉션 -> jeonghwan 문서
+        const docRef = doc(db, COLLECTION_NAME, USER_ID);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-          console.log("Firebase 데이터 로드 완료!");
-          setAppData(docSnap.data());
+          console.log("✅ 데이터 로드 성공!");
+          const data = docSnap.data();
+          
+          // 데이터가 비어있지 않은지 확인 후 적용
+          if (data && data.books) {
+            setAppData(data);
+          }
         } else {
-          console.log("데이터가 없어 기본값으로 시작합니다.");
-          // 데이터가 없으면 현재 기본값(defaultData) 상태 유지 후 저장됨
+          console.log("ℹ️ 데이터 없음, 기본값으로 시작합니다.");
         }
       } catch (error) {
-        console.error("데이터 불러오기 실패:", error);
-        alert("데이터를 불러오지 못했습니다. 인터넷 연결을 확인하세요.");
+        console.error("❌ 데이터 로드 실패:", error);
       } finally {
-        setIsLoading(false); // 로딩 끝
+        setIsLoading(false); 
       }
     };
-    fetchData();
-  }, []);
 
-  // --- 3. [자동 저장] appData가 변할 때마다 Firebase에 저장 ---
+    fetchData();
+  }, []); // 빈 배열 유지
+
+  // --- 3. [자동 저장] 데이터 변경 시 실행 ---
   useEffect(() => {
-    // 로딩 중일 때는 저장하지 않음 (빈 데이터 덮어쓰기 방지)
     if (isLoading) return;
 
-    const saveData = async () => {
+    const timeoutId = setTimeout(async () => {
       try {
-        const docRef = doc(db, "study_data", "my_data");
+        // ⭐ 경로 수정: studyData 컬렉션 -> jeonghwan 문서
+        const docRef = doc(db, COLLECTION_NAME, USER_ID);
         await setDoc(docRef, appData);
-        // console.log("자동 저장 완료"); // 너무 자주 찍히면 주석 처리
+        console.log("💾 자동 저장 완료");
       } catch (error) {
-        console.error("자동 저장 실패:", error);
+        console.warn("⚠️ 자동 저장 실패");
       }
-    };
-
-    // 디바운싱(Debouncing) 적용: 1초 동안 변화가 없으면 저장 (쓰기 비용 절약)
-    const timeoutId = setTimeout(() => {
-      saveData();
     }, 1000);
 
     return () => clearTimeout(timeoutId);
   }, [appData, isLoading]);
 
 
+  
   // --- 4. 액션 로직 (기존과 동일, 로컬 State만 바꾸면 useEffect가 알아서 저장함) ---
   const actions = {
     updateItemLevel: (sIdx, num, daysAgo = 0) => {
@@ -157,15 +165,33 @@ export const useStudyManager = () => {
         actions.updateRecord(sIdx, num, { mastered: !record.mastered });
         return;
       }
+      if (confirm(`[${subject.name} ${num}번]\n학습을 완료하고 레벨을 올리시겠습니까?`)) {
+  actions.updateItemLevel(sIdx, num, 0);
+}
+
     },
 
-    batchCheck:(sIdx)  => {
-        const s = appData.books[appData.activeTab][sIdx]; const tabObj = appData.tabs.find(t => t.id === appData.activeTab);
-        const r = prompt(`[${s.name} 범위 체크] (예: 1-10)`); if (!r) return;
-        let start, end; if (r.includes("-")) { [start, end] = r.split("-").map(Number); } else { start = end = Number(r); }
-        if (isNaN(start) || isNaN(end) || start < 1 || end > s.max || start > end) return alert("유효하지 않은 범위입니다.");
-        if (confirm(`${start}번~${end}번 일괄 레벨업 하시겠습니까?`)) { for (let i = start; i <= end; i++) { processLevelUp(s, tabObj.name, i); } save(); render(); }
-    },
+    batchCheck: (sIdx) => {
+  const s = appData.books[appData.activeTab][sIdx];
+  const r = prompt(`[${s.name} 범위 체크] (예: 1-10)`);
+  if (!r) return;
+
+  let start, end;
+  if (r.includes("-")) [start, end] = r.split("-").map(Number);
+  else start = end = Number(r);
+
+  if (isNaN(start) || isNaN(end) || start < 1 || end > s.max || start > end) {
+    alert("유효하지 않은 범위입니다.");
+    return;
+  }
+
+  if (confirm(`${start}번~${end}번 일괄 레벨업 하시겠습니까?`)) {
+    for (let i = start; i <= end; i++) {
+      actions.updateItemLevel(sIdx, i, 0);
+    }
+  }
+},
+
 
 
     updateRecord: (sIdx, num, data) => {
@@ -292,7 +318,7 @@ export const useStudyManager = () => {
           const parsedData = JSON.parse(localData);
           
           // 1. Firebase에 업로드
-          const docRef = doc(db, "study_data", "my_data");
+         const docRef = doc(db, COLLECTION_NAME, USER_ID);
           await setDoc(docRef, parsedData);
           
           // 2. 현재 화면 상태도 업데이트
