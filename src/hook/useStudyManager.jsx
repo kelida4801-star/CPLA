@@ -5,7 +5,7 @@ import { db } from "../firebase/db.js"; // ⚠️ firebase.js가 있는 경로�
 export const useStudyManager = () => {
 
   console.log("DB 상태 확인:", db);
-  
+
   const intervals = [0, 1, 3, 7, 14, 30, 45, 60];
   const [isLoading, setIsLoading] = useState(true); // 로딩 상태 추가
 
@@ -273,6 +273,33 @@ export const useStudyManager = () => {
 
     toggleTheme: () => setAppData(prev => ({ ...prev, isDark: !prev.isDark })),
     closeModal: () => setModal(prev => ({ ...prev, isOpen: false })),
+    // 👇 [추가] 로컬 스토리지 데이터를 읽어서 Firebase로 강제 업로드하는 함수
+    uploadLocalData: async () => {
+      const localData = localStorage.getItem("cpla_ebbinghaus_v3_react");
+      
+      if (!localData) {
+        alert("로컬에 저장된 데이터가 없습니다!");
+        return;
+      }
+
+      if (confirm("로컬 스토리지의 데이터를 Firebase로 업로드하시겠습니까?\n(기존 DB 데이터는 덮어씌워집니다)")) {
+        try {
+          const parsedData = JSON.parse(localData);
+          
+          // 1. Firebase에 업로드
+          const docRef = doc(db, "study_data", "my_data");
+          await setDoc(docRef, parsedData);
+          
+          // 2. 현재 화면 상태도 업데이트
+          setAppData(parsedData);
+          
+          alert("✅ 업로드 성공! 이제 데이터가 클라우드에 저장되었습니다.");
+        } catch (error) {
+          console.error("업로드 실패:", error);
+          alert("업로드 중 오류가 발생했습니다.");
+        }
+      }
+    },
   };
 
   return { appData, calendarDate, modal, actions, isLoading };

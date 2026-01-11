@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 
 // 본인의 Config를 유지하세요
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -15,8 +15,9 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true, 
+});
 /**
  * 특정 유저의 데이터를 가져오는 함수
  */
