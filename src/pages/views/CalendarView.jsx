@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
-const CalendarView = ({ books, actions }) => {
+const CalendarView = ({ appData }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null); 
   const [memo, setMemo] = useState("");
@@ -15,18 +15,36 @@ const CalendarView = ({ books, actions }) => {
   };
 
   // 학습 데이터 맵핑
-  const dateMap = {};
-  Object.values(books).forEach(subjects => {
-    subjects.forEach(s => {
-      Object.keys(s.records).forEach(num => {
-        const rec = s.records[num];
-        if (rec.nextDate && !rec.mastered) {
-          if (!dateMap[rec.nextDate]) dateMap[rec.nextDate] = [];
-          dateMap[rec.nextDate].push({ name: s.name, num, color: s.color });
-        }
-      });
+  const scheduleMap = useMemo(() => {
+    if (!appData || !appData.books) return {};
+
+    const map = {};
+    const tabs = appData.tabs || [];
+    
+    tabs.forEach(tab => {
+      const subjects = appData.books[tab.id];
+      if (Array.isArray(subjects)) {
+        subjects.forEach(subject => {
+          const records = subject.records || {};
+          Object.keys(records).forEach(num => {
+            const rec = records[num];
+            if (rec && rec.nextDate && !rec.mastered) {
+              if (!map[rec.nextDate]) map[rec.nextDate] = [];
+              map[rec.nextDate].push({
+                name: subject.name,
+                num: num,
+                color: subject.color || '#0984e3',
+                bookName: tab.name,
+                level: rec.level
+              });
+            }
+          });
+        });
+      }
     });
-  });
+
+    return map;
+  }, [appData]);
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -38,10 +56,14 @@ const CalendarView = ({ books, actions }) => {
   }
   for (let i = 1; i <= daysInMonth; i++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
-    days.push({ day: i, dateStr, items: dateMap[dateStr], isToday: dateStr === todayStr });
+    days.push({
+      day: i,
+      dateStr,
+      items: scheduleMap[dateStr],   // ✅ 여기!
+      isToday: dateStr === todayStr
+    });
   }
 
-  // 클릭 시 사이드바 오픈 및 선택 처리
   const handleDayClick = (d) => {
     if (d.other) return;
     setSelectedDay(d);
@@ -49,9 +71,7 @@ const CalendarView = ({ books, actions }) => {
   };
 
   return (
-    <div className="calendar-container" >
-      
-      {/* 1. 달력 메인 */}
+    <div className="calendar-container">
       <div className="calendar-main" style={{ flex: 1 }}>
         <div className="calendar-header">
           <h2 style={{ color: 'var(--primary)', margin: 0, fontWeight: 900 }}>
@@ -71,12 +91,11 @@ const CalendarView = ({ books, actions }) => {
               className={`calendar-day 
                 ${d.other ? 'other-month' : ''} 
                 ${d.isToday ? 'today' : ''} 
-                ${selectedDay?.dateStr === d.dateStr ? 'selected-day' : ''}`} // ⭐ 선택된 날짜 클래스 추가
+                ${selectedDay?.dateStr === d.dateStr ? 'selected-day' : ''}`}
               onClick={() => handleDayClick(d)}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span className="calendar-date">{d.day}</span>
-                {/* ⭐ 오늘 날짜 옆 TODAY 표시 */}
                 {d.isToday && <span className="today-badge"></span>}
               </div>
               
@@ -92,7 +111,6 @@ const CalendarView = ({ books, actions }) => {
         </div>
       </div>
 
-      {/* 2. 사이드바 (내용 동일) */}
       <div className={`calendar-sidebar ${selectedDay ? 'open' : ''}`}>
         {selectedDay && (
           <div className="sidebar-content">
@@ -110,8 +128,6 @@ const CalendarView = ({ books, actions }) => {
           </div>
         )}
       </div>
-
-      
     </div>
   );
 };

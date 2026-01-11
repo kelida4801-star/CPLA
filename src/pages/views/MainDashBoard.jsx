@@ -35,11 +35,11 @@ const MainDashBoard = ({
             todayStr={todayStr}
             onItemClick={actions.handleItemClick}
             onWeightToggle={actions.toggleWeight}
+            onToggleExtract={actions.onToggleExtract}
             onUpdateMax={actions.updateMax}
-            onToggleExtract={actions.toggleSubjectExtract}
             onRename={actions.renameSubject}
             onBatchCheck={actions.batchCheck}
-            onReset={actions.resetSubject}
+            onReset={actions.handleResetSubject}
             onDelete={actions.deleteSubject}
           />
         ))}

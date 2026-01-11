@@ -7,22 +7,29 @@ const ScheduleView = ({ books, tabs }) => {
   // 모든 교재(tabs)와 모든 과목(books)을 순회하며 데이터 수집
   Object.keys(books).forEach(bookId => {
     const bookName = tabs.find(t => t.id === bookId)?.name || "기타";
-    books[bookId].forEach(s => {
-      Object.keys(s.records).forEach(num => {
-        const rec = s.records[num];
-        if (rec.level > 0) {
-          rows.push({
-            bookName,
-            subjectName: s.name,
-            num,
-            topic: rec.topic || "-",
-            level: rec.level,
-            next: rec.nextDate,
-            mastered: rec.mastered
-          });
-        }
+    
+    // books[bookId]가 배열인지 확인 (안전장치 추가)
+    if (Array.isArray(books[bookId])) {
+      books[bookId].forEach(s => {
+        // [수정 포인트] s.records가 없으면 빈 객체({})를 사용하여 에러 방지
+        const records = s.records || {}; 
+
+        Object.keys(records).forEach(num => {
+          const rec = records[num];
+          if (rec && rec.level > 0) { // rec 자체가 존재하는지도 확인
+            rows.push({
+              bookName,
+              subjectName: s.name,
+              num,
+              topic: rec.topic || "-",
+              level: rec.level,
+              next: rec.nextDate,
+              mastered: rec.mastered
+            });
+          }
+        });
       });
-    });
+    }
   });
 
   // 날짜순 정렬

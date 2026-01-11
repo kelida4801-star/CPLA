@@ -4,18 +4,26 @@ const StatsView = ({ books, tabs }) => {
   // 탭 리스트가 비어있을 경우를 대비한 방어 코드
   const [selectedTab, setSelectedTab] = useState(tabs[0]?.id || "");
 
+  // books 데이터가 아직 로딩되지 않았을 때 방어
+  if (!books) return <div style={{ padding: '20px', textAlign: 'center' }}>데이터 로딩 중...</div>;
+
   const currentSubjects = books[selectedTab] || [];
   const examDate2nd = new Date("2026-08-29");
   
-  // 통계 데이터 계산 로직 (기존 유지)
+  // 통계 데이터 계산 로직
   let totalItems = 0, totalPoints = 0, totalResets = 0, totalWeights = 0;
   
   const subjectStats = currentSubjects.map(s => {
     let sPoints = 0, sResets = 0, sWeights = 0;
     totalItems += s.max;
     
+    // ⭐ [핵심 수정] records가 없으면 빈 객체({})로 처리하여 에러 방지
+    const records = s.records || {};
+
     for (let i = 1; i <= s.max; i++) {
-      const rec = s.records[i] || { level: 0, weight: 1, resetCount: 0 };
+      // s.records[i] 대신 위에서 정의한 safe 변수 records[i] 사용
+      const rec = records[i] || { level: 0, weight: 1, resetCount: 0 };
+      
       sPoints += Math.min(rec.level, 6);
       sResets += (rec.resetCount || 0);
       if (rec.weight < 1) sWeights++;
@@ -34,19 +42,17 @@ const StatsView = ({ books, tabs }) => {
   const speed = (remain / days).toFixed(2);
 
   return (
-    // 최상단 div에 paddingTop: 0을 명시하여 Header와의 간격을 좁힙니다.
     <div className="stats-view" style={{ width: "1200px", paddingTop: 0 }}>
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
         marginBottom: '25px',
-        marginTop: 0 // 상단 마진 완전 제거
+        marginTop: 0 
       }}>
-        {/* marginTop: 0 적용으로 헤더 바로 아래에 붙도록 설정 */}
         <h2 style={{ 
           color: 'var(--primary)', 
-          margin: 0, // 상하좌우 마진 모두 초기화
+          margin: 0, 
           fontWeight: 900,
           fontSize: '1.8rem'
         }}>
@@ -113,7 +119,7 @@ const StatsView = ({ books, tabs }) => {
                         style={{ 
                           width: `${p}%`, 
                           background: s.color,
-                          transition: 'width 0.5s ease-in-out' // 게이지가 부드럽게 차오름
+                          transition: 'width 0.5s ease-in-out'
                         }}
                       ></div>
                     </div>

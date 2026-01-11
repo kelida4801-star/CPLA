@@ -272,41 +272,100 @@ export const useStudyManager = () => {
     },
     
     onExtractDaily: () => {
-        const subjects = appData.books[appData.activeTab];
+        const currentTabId = appData.activeTab;
+        const subjects = appData.books?.[currentTabId];
+
+        // 🔍 [디버깅 로그] F12 콘솔에서 이 내용을 확인하세요
+        console.log("=== 추출 진단 시작 ===");
+        console.log("1. 현재 탭 ID:", currentTabId);
+        console.log("2. 전체 교재 목록:", Object.keys(appData.books));
+        console.log("3. 찾은 과목 데이터:", subjects);
+
+        // 1. 데이터가 아예 없는 경우 (탭 매칭 실패)
+        if (!subjects || !Array.isArray(subjects)) {
+            alert(`[오류] 현재 탭(${currentTabId})에 해당하는 데이터를 찾을 수 없습니다.\n콘솔(F12)을 확인해 주세요.`);
+            return;
+        }
+
         const today = new Date().toISOString().split("T")[0];
         let results = [], logText = "";
-        
+        let extractableCount = 0; // 추출 가능한 과목 수 카운트
+
         subjects.forEach(s => {
-          if (!s.extractEnabled) return;
+          // 2. 체크박스 확인
+          if (!s.extractEnabled) {
+              console.log(`PASS: [${s.name}]은 체크박스가 해제되어 건너뜁니다.`);
+              return;
+          }
+          extractableCount++;
+
           let due = [], news = [], learned = [];
           const records = s.records || {};
           
           for (let i = 1; i <= s.max; i++) {
             const rec = records[i] || { level: 0 };
+            
+            // 날짜 비교 로직 확인
             if (rec.nextDate && rec.nextDate <= today && !rec.mastered) due.push(i);
             else if (rec.level === 0) news.push(i);
             else if (!rec.mastered) learned.push(i);
           }
+          
+          // 각 상태별 문항 수 로그
+          console.log(`[${s.name}] 복습대기: ${due.length}개, 신규: ${news.length}개, 보너스후보: ${learned.length}개`);
+
           let pick = due.length ? { n: due[Math.floor(Math.random()*due.length)], t: "복습" } :
                      news.length ? { n: news[Math.floor(Math.random()*news.length)], t: "신규" } :
                      learned.length ? { n: learned[Math.floor(Math.random()*learned.length)], t: "보너스" } : null;
+                     
           if (pick) {
             results.push(`<span style="color:${s.color}">[${pick.t}] ${s.name}</span>: ${pick.n}번`);
             logText += `${s.name}(${pick.n}) `;
           }
         });
         
+        // 3. 체크박스가 모두 꺼져있는 경우
+        if (extractableCount === 0) {
+            alert("모든 과목의 체크박스가 해제되어 있습니다.\n과목 이름 옆의 체크박스를 켜주세요.");
+            return;
+        }
+
         if (results.length) {
           setAppData(prev => ({ 
             ...prev, 
             history: [{ time: new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}), result: logText }, ...(prev.history || [])].slice(0, 10) 
           }));
           setModal({ isOpen: true, title: "🎯 오늘의 학습 미션", content: results.join("<br>") });
-        } else alert("추출할 문항이 없습니다.");
+        } else {
+            alert("추출할 문항이 없습니다.\n(모든 문항을 마스터했거나, 오늘 복습할 분량이 없습니다.)");
+        }
+    },
+
+    onToggleExtract: (sIdx) => {
+      setAppData(prev => {
+        const newBooks = { ...prev.books };
+        const currentList = [...newBooks[prev.activeTab]];
+        
+        // 해당 과목의 extractEnabled 값을 반전(!) 시킴
+        currentList[sIdx] = { 
+            ...currentList[sIdx], 
+            extractEnabled: !currentList[sIdx].extractEnabled 
+        };
+        
+        newBooks[prev.activeTab] = currentList;
+        return { ...prev, books: newBooks };
+      });
     },
 
     onExtractWeighted: () => {
-         const subjects = appData.books[appData.activeTab];
+      
+      const subjects = appData.books[appData.activeTab];
+      // 🛑 [수정됨] 방어 코드 추가: 데이터가 없거나 배열이 아니면 중단
+        if (!subjects || !Array.isArray(subjects)) {
+            console.error(`❌ 오류: '${appData.activeTab}' 탭에 해당하는 과목 데이터가 없습니다.`);
+            alert("현재 선택된 교재의 데이터를 찾을 수 없습니다.\n탭을 다시 선택하거나 새로고침 해주세요.");
+            return;
+        }
          let weights = [];
          subjects.forEach(s => {
            if (!s.extractEnabled) return;
@@ -345,7 +404,24 @@ export const useStudyManager = () => {
         }
       }
     },
+    handleResetSubject : (sIdx) => {
+      if (window.confirm("이 과목의 모든 데이터를 초기화하시겠습니까? (정체 지수는 상승합니다)")) {
+        setAppData(prev => {
+          const newAppData = { ...prev };
+          // 현재 탭의 해당 과목 찾기
+          const currentTabId = newAppData.activeTab;
+          const subject = newAppData.books[currentTabId][sIdx];
+
+          // records 초기화 (빈 객체로 만듦)
+          subject.records = {};
+      
+          return newAppData;
+        });
+      }
+    },
   };
+  
+  
 
   return { appData, calendarDate, modal, actions, isLoading };
 };

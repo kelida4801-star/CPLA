@@ -50,7 +50,7 @@ function App() {
 
     switch (activeTab) {
       case 'calendar':
-        return <CalendarView books={books} calendarDate={calendarDate} actions={actions} />;
+        return <CalendarView books={books} calendarDate={calendarDate} actions={actions} appData={appData}/>;
       case 'stats':
         return <StatsView books={books} tabs={tabs} actions={actions} />;
       case 'schedule':
