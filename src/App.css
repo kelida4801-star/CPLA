@@ -37,6 +37,13 @@ body {
   display: flex;
   justify-content: center; /* 가로 중앙 정렬*/
   min-height: 100vh;
+  display: flex;
+  /* 가로 중앙 정렬 */
+  align-items: flex-start;
+  /* ⭐ 수직 정렬을 '상단'으로 고정 (중요!) */
+  
+  overflow-y: scroll;
+  /* ⭐ 스크롤바 영역을 항상 확보해 가로 흔들림 방지 */
 } 
 
 /* 레이아웃 */
@@ -56,10 +63,11 @@ body {
 }
 
 .header {
+  height: 100px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 30px;
+  margin-top: 30px;
 }
 
 .header h1 {
@@ -67,6 +75,29 @@ body {
   font-weight: 900;
   letter-spacing: -1px;
   margin: 0;
+}
+
+.stats-view h2,
+.help-view h4,
+.log-view h2,
+.schedule-view h2 {
+  margin-top: 0 !important;
+  /* 브라우저 기본 마진 제거 */
+  padding-top: 0 !important;
+}
+
+/* 2. 각 탭 내용을 감싸는 컨테이너 간격 통일 */
+.view-container {
+  padding-top: 20px;
+  /* 모든 탭이 동일한 패딩에서 시작하도록 설정 */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 3. 도움말 내부의 섹션 마진 조정 */
+.help-section:first-child {
+  margin-top: 0 !important;
 }
 
 /* D-Day 시스템 */
@@ -91,13 +122,11 @@ body {
 
 /* 네비게이션 & 탭 */
 .nav-wrapper {
+  height: 60px;
   display: flex;
   justify-content: space-between;
-  /* ⭐ 좌우 끝으로 확실히 밀어냄 */
   align-items: center;
-  width: 100%;
-  padding: 5px 0;
-  margin-bottom: 25px;
+  width: 100%; 
   border-bottom: 1px solid var(--border);
 }
 
@@ -164,7 +193,7 @@ background: var(--info);
 }
 
 
-.tab-btn.utility.active::after { background: var(--info); }
+
 .tab-btn span {
   font-size: 0.7rem;
   opacity: 0.6;
@@ -195,7 +224,7 @@ background: var(--info);
   align-items: center;
   gap: 20px;
   /* 핵심: 화면이 좁아지면 버튼이 아래로 내려가도록 설정 */
-  flex-wrap: wrap; 
+  flex-wrap: nowrap; 
 }
 
 .guide-grid {
@@ -240,34 +269,6 @@ background: var(--info);
   font-weight: 700;
   color: #4b5563;
   white-space: nowrap;
-}
-
-/* --- 전역 반응형 대응 (화면 정렬 핵심) --- */
-@media (max-width: 768px) {
-  .guide-dashboard {
-    padding: 15px;
-    gap: 15px;
-  }
-
-  .guide-grid {
-    grid-template-columns: repeat(2, 1fr); /* 모바일에선 무조건 2열 */
-    min-width: 100%;
-  }
-
-  .btn-mini {
-    width: 100%; /* 모바일에서 추가 버튼을 가득 채움 */
-    order: -1;   /* 버튼을 가이드 위로 올리고 싶다면 사용 (선택사항) */
-  }
-}
-
-@media (max-width: 480px) {
-  .guide-grid {
-    grid-template-columns: repeat(2, 1fr); /* 초소형 기기도 2열 유지 */
-  }
-  
-  .guide-desc {
-    font-size: 0.75rem; /* 글자 크기 살짝 축소 */
-  }
 }
 
 /* 과목 카드 & 그리드 */
@@ -494,6 +495,7 @@ background: var(--info);
   box-shadow: 0 10px 30px var(--shadow);
   overflow-x: auto;
   border: 1px solid var(--border);
+  margin-top: 20px;
 }
 
 .schedule-table {
@@ -539,7 +541,7 @@ display: flex;
   margin-top: 20px;
   position: relative;
   /* 자식 요소의 기준점 역할 */
-  width: 100%;
+  width: 1200px;
   /* 전체 너비 사용 */
  }
 
@@ -635,6 +637,7 @@ display: flex;
    display: flex;
    flex-direction: column;
    gap: 4px;
+   width: 80px;
  }
 
  .calendar-item {
@@ -766,24 +769,24 @@ display: flex;
 
 .heatmap-fill { height: 100%; transition: 1s; }
 
-/* 하단 제어판 (Fixed) */
 .control-panel {
   position: fixed;
   bottom: 30px;
   left: 50%;
   transform: translateX(-50%);
   width: 95%;
-  max-width: 900px;
+  max-width: 950px;
   background: var(--card);
-  padding: 20px;
-  border-radius: 30px;
-  box-shadow: 0 -15px 50px rgba(0, 0, 0, 0.15);
+  padding: 20px 25px;
+  border-radius: 35px;
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.15);
   display: flex;
-  gap: 12px;
+  gap: 15px;
   border: 1px solid var(--border);
   z-index: 100;
   align-items: center;
 }
+
 
 /* 버튼 공통 */
 .btn {
@@ -1008,18 +1011,6 @@ display: flex;
   overflow-y: auto;
 }
 
-/* (선택사항) 아주 작은 화면에 대한 미디어 쿼리 */
-@media (max-width: 480px) {
-  .modal-header {
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-  }
-
-  .modal-title {
-    font-size: 1.1rem;
-  }
-}
-
 /* 최근 추출 이력 */
 .history-section {
   background: var(--card);
@@ -1067,6 +1058,7 @@ display: flex;
   flex: 1;
   color: var(--text);
 }
+
 @keyframes pulse {
   0% {
     box-shadow: 0 0 0 0 rgba(253, 203, 110, 0.7);
@@ -1080,3 +1072,87 @@ display: flex;
     box-shadow: 0 0 0 0 rgba(253, 203, 110, 0);
   }
 }
+
+ .help-box {
+   line-height: 2;
+   color: var(--text);
+   padding: 5px;
+ }
+
+ .help-section {
+   margin-bottom: 40px;
+   padding: 30px;
+   background: var(--card);
+   border-radius: 28px;
+   border: 1px solid var(--border);
+   box-shadow: 0 10px 30px var(--shadow);
+ }
+
+ .help-section h4 {
+   color: var(--primary);
+   margin-top: 0;
+   margin-bottom: 20px;
+   font-size: 1.4rem;
+   font-weight: 900;
+   display: flex;
+   align-items: center;
+   gap: 12px;
+ }
+
+ .help-section p {
+   margin-bottom: 18px;
+   color: var(--text);
+   font-weight: 700;
+   font-size: 1.1rem;
+ }
+
+ .help-section ul {
+   padding-left: 0;
+   margin: 0;
+   list-style: none;
+ }
+
+ .help-section li {
+   margin-bottom: 15px;
+   position: relative;
+   padding-left: 30px;
+   font-weight: 500;
+   font-size: 1rem;
+ }
+
+ .help-section li::before {
+   content: "⭐";
+   position: absolute;
+   left: 0;
+   font-size: 1rem;
+ }
+
+ .qa-card {
+   background: var(--bg);
+   padding: 25px;
+   border-radius: 20px;
+   margin-bottom: 20px;
+   border: 1px solid var(--border);
+   transition: 0.3s;
+ }
+
+ .qa-card:hover {
+   border-color: var(--info);
+   background: var(--card);
+ }
+
+ .qa-q {
+   font-weight: 900;
+   color: var(--info);
+   display: block;
+   margin-bottom: 12px;
+   font-size: 1.15rem;
+ }
+
+ .qa-a {
+   font-weight: 500;
+   font-size: 1rem;
+   color: #4b5563;
+ }
+
+  

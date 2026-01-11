@@ -2,7 +2,7 @@ import React from 'react';
 
 const HelpView = ({ exportData, importData }) => {
   return (
-    <div id="help-view" className="help-box">
+    <div id="help-view" className="help-box" style={{ width :"1200px" }}>
       <div className="help-section">
         <h4>🧠 에빙하우스 복습 매커니즘</h4>
         <p>본 매니저는 지능형 알고리즘을 통해 망각을 차단합니다.</p>

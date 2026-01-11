@@ -49,7 +49,7 @@ const CalendarView = ({ books, actions }) => {
   };
 
   return (
-    <div className="calendar-container" style={{ display: 'flex', gap: '20px' }}>
+    <div className="calendar-container" >
       
       {/* 1. 달력 메인 */}
       <div className="calendar-main" style={{ flex: 1 }}>

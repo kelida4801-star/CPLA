@@ -2,7 +2,7 @@ import React from 'react';
 
 const LogView = ({ logs, actions}) => {
   return (
-    <div id="log-view">
+    <div id="log-view" style={{ width :"1200px" }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2 style={{ color: 'var(--info)', margin: 0, fontWeight: 900 }}>📜 상세 학습 완료 기록</h2>
         <button className="btn-mini danger" style={{ padding: '10px 20px' }} onClick={actions.onClearLogs}>

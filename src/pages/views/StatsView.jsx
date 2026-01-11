@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 
 const StatsView = ({ books, tabs }) => {
+  // 탭 리스트가 비어있을 경우를 대비한 방어 코드
   const [selectedTab, setSelectedTab] = useState(tabs[0]?.id || "");
 
   const currentSubjects = books[selectedTab] || [];
   const examDate2nd = new Date("2026-08-29");
   
-  // 통계 데이터 계산
+  // 통계 데이터 계산 로직 (기존 유지)
   let totalItems = 0, totalPoints = 0, totalResets = 0, totalWeights = 0;
   
   const subjectStats = currentSubjects.map(s => {
@@ -33,18 +34,43 @@ const StatsView = ({ books, tabs }) => {
   const speed = (remain / days).toFixed(2);
 
   return (
-    <div id="stats-view">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-        <h2 style={{ color: 'var(--primary)', margin: 0, fontWeight: 900 }}>📊 상세 수험 데이터 분석</h2>
+    // 최상단 div에 paddingTop: 0을 명시하여 Header와의 간격을 좁힙니다.
+    <div className="stats-view" style={{ width: "1200px", paddingTop: 0 }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '25px',
+        marginTop: 0 // 상단 마진 완전 제거
+      }}>
+        {/* marginTop: 0 적용으로 헤더 바로 아래에 붙도록 설정 */}
+        <h2 style={{ 
+          color: 'var(--primary)', 
+          margin: 0, // 상하좌우 마진 모두 초기화
+          fontWeight: 900,
+          fontSize: '1.8rem'
+        }}>
+          📊 상세 수험 데이터 분석
+        </h2>
+        
         <select 
           value={selectedTab} 
           onChange={(e) => setSelectedTab(e.target.value)}
-          style={{ padding: '12px 20px', borderRadius: '15px', border: '1px solid var(--border)', fontWeight: 800, background: 'var(--card)', color: 'var(--text)' }}
+          style={{ 
+            padding: '12px 20px', 
+            borderRadius: '15px', 
+            border: '1px solid var(--border)', 
+            fontWeight: 800, 
+            background: 'var(--card)', 
+            color: 'var(--text)',
+            cursor: 'pointer'
+          }}
         >
           {tabs.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </div>
 
+      {/* 대시보드 요약 카드 영역 */}
       <div className="stats-grid">
         <div className="stats-card">
           <h4>누적 마스터리</h4>
@@ -60,26 +86,36 @@ const StatsView = ({ books, tabs }) => {
         </div>
       </div>
 
+      {/* 테이블 영역 */}
       <div className="schedule-table-wrapper">
         <table className="schedule-table">
           <thead>
             <tr>
-              <th>과목명</th>
-              <th>학습 히트맵</th>
-              <th style={{ textAlign: 'center' }}>취약(🔥)</th>
-              <th style={{ textAlign: 'center' }}>정체(🔄)</th>
+              <th style={{ width: '20%' }}>과목명</th>
+              <th style={{ width: '50%' }}>학습 히트맵</th>
+              <th style={{ textAlign: 'center', width: '15%' }}>취약(🔥)</th>
+              <th style={{ textAlign: 'center', width: '15%' }}>정체(🔄)</th>
             </tr>
           </thead>
           <tbody>
             {subjectStats.map((s, idx) => {
-              const p = ((s.points / s.maxPoints) * 100).toFixed(1);
+              const p = s.maxPoints > 0 ? ((s.points / s.maxPoints) * 100).toFixed(1) : 0;
               return (
                 <tr key={idx}>
                   <td style={{ fontWeight: 900, color: s.color }}>{s.name}</td>
                   <td>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, marginBottom: '5px' }}>Progress: {p}%</div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 800, marginBottom: '5px', color: 'var(--text)' }}>
+                      Progress: {p}%
+                    </div>
                     <div className="heatmap-bar">
-                      <div className="heatmap-fill" style={{ width: `${p}%`, background: s.color }}></div>
+                      <div 
+                        className="heatmap-fill" 
+                        style={{ 
+                          width: `${p}%`, 
+                          background: s.color,
+                          transition: 'width 0.5s ease-in-out' // 게이지가 부드럽게 차오름
+                        }}
+                      ></div>
                     </div>
                   </td>
                   <td style={{ textAlign: 'center', fontWeight: 900, color: 'var(--danger)' }}>{s.weights}</td>

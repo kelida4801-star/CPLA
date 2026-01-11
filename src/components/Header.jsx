@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Header = () => {
+const Header = ({ currentTitle }) => { // props로 currentTitle을 받음
   const examDate1st = new Date("2026-05-23");
   const examDate2nd = new Date("2026-08-29");
   const today = new Date();
@@ -12,7 +12,8 @@ const Header = () => {
 
   return (
     <div className="header">
-      <h1 id="main-title">🚀 CPLA 합격 매니저</h1>
+      {/* 전달받은 currentTitle을 화면에 표시 */}
+      <h1 id="main-title">🚀 {currentTitle}</h1>
       <div className="dday-container">
         <div className="d-day first">1차 합격 {getDDay(examDate1st)}</div>
         <div className="d-day second">2차 합격 {getDDay(examDate2nd)}</div>

@@ -27,6 +27,23 @@ function App() {
   const { appData, modal, actions, calendarDate } = useStudyManager();
   const todayStr = new Date().toISOString().split('T')[0];
 
+// --- [타이틀 결정 로직] ---
+  // 1. 일반 교재 탭(basic, case 등)에서 이름 찾기
+  const activeTabObj = appData.tabs.find(t => t.id === appData.activeTab);
+  let currentTitle = activeTabObj ? activeTabObj.name : "";
+
+  // 2. 만약 유틸리티 탭(달력, 분석 등)일 경우 수동 매핑
+  if (!currentTitle) {
+    const utilityNames = {
+      calendar: "학습 달력",
+      stats: "수험 분석",
+      log: "학습 이력",
+      schedule: "복습 일정",
+      help: "가이드"
+    };
+    currentTitle = utilityNames[appData.activeTab] || "CPLA 매니저";
+  }
+
   // 2. 현재 활성화된 탭에 따른 컨텐츠 렌더링
   const renderContent = () => {
     const { activeTab, books, logs, tabs, history } = appData;
@@ -61,7 +78,7 @@ function App() {
     <div className={appData.isDark ? "dark-mode" : ""}>
       <div className="container">
         {/* 헤더: 디데이 표시 */}
-        <Header examDate1st={EXAM_DATE_1ST} examDate2nd={EXAM_DATE_2ND} />
+        <Header currentTitle={currentTitle} />
         
         {/* 네비게이션: 탭 전환 및 추가/삭제 */}
         <Navigation 

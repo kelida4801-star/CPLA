@@ -29,7 +29,7 @@ const ScheduleView = ({ books, tabs }) => {
   rows.sort((a, b) => a.next.localeCompare(b.next));
 
   return (
-    <div id="schedule-view">
+    <div id="schedule-view" style={{ width :"1200px" }}>
       <h2 style={{ color: 'var(--info)', fontWeight: 900 }}>🔄 에빙하우스 복습 리스트</h2>
       <div className="schedule-table-wrapper">
         <table className="schedule-table">
