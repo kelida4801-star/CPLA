@@ -270,6 +270,30 @@ export const useStudyManager = () => {
         });
       }
     },
+
+    // 1. 로그 개별 삭제 (수정됨)
+    onDeleteLog: (idx) => {
+      if (window.confirm("이 기록을 삭제하시겠습니까?")) {
+        setAppData(prev => {
+          // 1. 불변성 유지: 기존 logs 배열 복사
+          const newLogs = [...(prev.logs || [])];
+          
+          // 2. 해당 인덱스 삭제
+          newLogs.splice(idx, 1);
+          
+          // 3. 상태 업데이트 (자동으로 Firebase 저장 및 화면 갱신됨)
+          return { ...prev, logs: newLogs };
+        });
+      }
+    },
+
+    // 2. 로그 전체 삭제 (필요할 경우 추가)
+    onClearLogs: () => {
+      if (window.confirm("모든 학습 이력을 삭제하시겠습니까?")) {
+        setAppData(prev => ({ ...prev, logs: [] }));
+      }
+    },
+
     
     onExtractDaily: () => {
         const currentTabId = appData.activeTab;
