@@ -157,11 +157,16 @@ export const useStudyManager = () => {
         actions.updateRecord(sIdx, num, { mastered: !record.mastered });
         return;
       }
-
-      if (confirm(`[${subject.name} ${num}번] 레벨업 하시겠습니까?`)) {
-        actions.updateItemLevel(sIdx, num, 0);
-      }
     },
+
+    batchCheck:(sIdx)  => {
+        const s = appData.books[appData.activeTab][sIdx]; const tabObj = appData.tabs.find(t => t.id === appData.activeTab);
+        const r = prompt(`[${s.name} 범위 체크] (예: 1-10)`); if (!r) return;
+        let start, end; if (r.includes("-")) { [start, end] = r.split("-").map(Number); } else { start = end = Number(r); }
+        if (isNaN(start) || isNaN(end) || start < 1 || end > s.max || start > end) return alert("유효하지 않은 범위입니다.");
+        if (confirm(`${start}번~${end}번 일괄 레벨업 하시겠습니까?`)) { for (let i = start; i <= end; i++) { processLevelUp(s, tabObj.name, i); } save(); render(); }
+    },
+
 
     updateRecord: (sIdx, num, data) => {
       setAppData(prev => {
